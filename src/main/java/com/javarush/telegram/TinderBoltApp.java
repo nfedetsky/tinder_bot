@@ -18,6 +18,7 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
 
     private ChatGPTService chatGPT = new ChatGPTService(OPEN_AI_TOKEN);
     private DialogMode currentMode = null;
+    private ArrayList<String> list = new ArrayList<>();
 
     public TinderBoltApp() {
         super(TELEGRAM_BOT_NAME, TELEGRAM_BOT_TOKEN);
@@ -26,8 +27,7 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
     @Override
     public void onUpdateEventReceived(Update update) {
         //TODO: основной функционал бота будем писать здесь
-        //String welcome_speech = loadMessage("welcome_speech");
-        //sendTextMessage(welcome_speech);
+
         String message = getMessageText();
         showMainMenu("Главное меню", "/main",
                 "Задай вопрос Вселенной", "/gpt",
@@ -35,6 +35,7 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
                 "Познакомься с твоей мечтой", "/opener",
                 "Пообщайся с мечтой", "/message",
                 "Напиши звезде", "/date");
+        //Mode MAIN
         if (message.equals("/main")){
             currentMode = DialogMode.MAIN;
             sendPhotoMessage("main");
@@ -42,6 +43,7 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
             sendTextMessage(text);
             return;
         }
+        //Mode GPT
         if (message.equals("/gpt")){
             currentMode = DialogMode.GPT;
             sendPhotoMessage("gpt");
@@ -53,6 +55,54 @@ public class TinderBoltApp extends MultiSessionTelegramBot {
             String prompt = loadPrompt("gpt");
             String answer = chatGPT.sendMessage(prompt, message);
             sendTextMessage(answer);
+            return;
+        }
+        //Mode DATE
+        if (message.equals("/date")){
+            currentMode = DialogMode.DATE;
+            sendPhotoMessage("date");
+            String text = loadMessage("date");
+            sendTextButtonsMessage(text,
+                    "Ариана Гранде", "date_grande",
+                    "Марго Робби", "date_robbie",
+                    "Зендея", "date_zendaya",
+                    "Райан Гослинг", "date_gosling",
+                    "Том Харди", "date_hardy");
+            return;
+        }
+        if (currentMode == DialogMode.DATE){
+            String query = getCallbackQueryButtonKey();
+            if (query.startsWith("date_")){
+                sendPhotoMessage(query);
+                sendTextMessage("Хороший выбор! Теперь задача пригласить пару на свидание!");
+                String prompt = loadPrompt(query);
+                chatGPT.setPrompt(prompt);
+                return;
+            }
+            String answer = chatGPT.addMessage(message);
+            sendTextMessage(answer);
+            return;
+        }
+        //Mode Message
+        if (message.equals("/message")){
+            currentMode = DialogMode.MESSAGE;
+            sendPhotoMessage("message");
+            sendTextButtonsMessage("Кинь в чат свою переписку!",
+                    "Следующее сообщение", "message_next",
+                    "Пригласить на свидание", "message_date");
+            return;
+        }
+        if (currentMode == DialogMode.MESSAGE){
+            String query = getCallbackQueryButtonKey();
+            if (query.startsWith("message_")){
+                String prompt = loadPrompt(query);
+                String userChatHistory = String.join("\n\n", list);
+                Message msg = sendTextMessage("Ожидайте, *ChatGPT* обрабатывает Ваш запрос");
+                String answer = chatGPT.sendMessage(prompt, userChatHistory);
+                updateTextMessage(msg, message);
+                return;
+            }
+            list.add(message);
             return;
         }
     }
